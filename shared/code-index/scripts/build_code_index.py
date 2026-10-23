@@ -21,15 +21,19 @@ KIND_RULES = [  # (regex on path or content, kind, layer) — first match wins
     (r"(Api|API|Client|Service)\b", "service", "data"), (r"(Dto|DTO)\b", "dto", "data"), (r"(Entity|Dao|@Model\b|@Entity\b)", "entity", "data"),
     (r"(Interceptor|Authenticator)", "interceptor", "infra"), (r"(Route|Routes|Navigation|NavKey|Coordinator|Router|NavHost)", "route", "app"),
     (r"(Module|Assembly|Component\.kt|providers|\.config\.ts$)", "di-module", "app"), (r"(Worker|Job|Scheduler)\b", "worker", "infra"),
-    (r"(Screen|View|Page|Fragment|Activity|Component|Dialog|Sheet)\b", "screen", "ui"),
+    (r"(AppDelegate|SceneDelegate|Application)\b", "config", "app"),
+    (r"(Response|Request|Payload)\b", "dto", "data"), (r"(Manager|Storage|Store|Provider)\b", "service", "data"),
+    (r"/Models?/|(Model|Entity)\.(swift|kt|ts)$", "model", "domain"),
+    (r"(Cell|Label|Button|Control|HeaderView|FooterView|OverlayView|GradientView|HairlineView|Badge|Chip|Toolbar)\b", "component", "ui"),
+    (r"(ViewController|Screen|View|Page|Fragment|Activity|Component|Dialog|Sheet)\b", "screen", "ui"),
 ]
 TEST_RE = re.compile(r"(Tests?\.swift$|Test\.kt$|\.spec\.ts$|/src/test/|/src/androidTest/|/Tests?/|/e2e/|UITests)")
-ENTRY_NAME = {"ios": re.compile(r"(Screen|Page|RootView|Coordinator|ViewController|Router|Scene|Flow)\b"),
+ENTRY_NAME = {"ios": re.compile(r"(Screen|Page|RootView|Coordinator|ViewController|Router|Scene|Flow|AppDelegate|SceneDelegate)\b"),
               "android": re.compile(r"(Screen|Activity|Fragment|Route)\b"),
               "angular": re.compile(r"(Page|Container|Shell|Layout)\b|[-.](page|container)\.ts$")}
 SEC_RE = re.compile(r"auth|token|payment|billing|crypto|keychain|keystore|permission|secret|password", re.I)
 STOP_SYMBOLS = {"State", "Error", "Result", "Color", "View", "Text", "Item", "Data", "Model", "Type", "Event", "Action", "Props", "Config", "Options", "Status", "Response", "Request", "Main", "Base", "Common", "Utils", "Helper"}
-STORAGE_LABEL = {"@Dao": "room", "@Database": "room", "@Entity": "room", "Room": "room", "DataStore<": "datastore", "KeyStore": "keystore", "EncryptedSharedPreferences": "encrypted-prefs",
+STORAGE_LABEL = {"UserDefaults(suiteName": "userdefaults", "forKey": "userdefaults", "@Dao": "room", "@Database": "room", "@Entity": "room", "Room": "room", "DataStore<": "datastore", "KeyStore": "keystore", "EncryptedSharedPreferences": "encrypted-prefs",
                  "@Model": "swiftdata", "ModelContext": "swiftdata", "NSManagedObject": "coredata", "CoreData": "coredata", "GRDB": "grdb", "Realm": "realm",
                  "UserDefaults": "userdefaults", "Keychain": "keychain", "FileManager": "files", "localStorage": "localStorage", "sessionStorage": "sessionStorage",
                  "indexedDB": "indexeddb", "IndexedDB": "indexeddb", "Dexie": "indexeddb", "CookieService": "cookies", "document": "cookies"}
@@ -42,17 +46,19 @@ GEN_END = "<!-- generated:end -->"
 P = {
  "ios": {
   "import": re.compile(r"^\s*import\s+([A-Za-z_][\w.]*)", re.M),
-  "inject": re.compile(r"@Dependency\(\\?\.?(\w+)\)|@Environment\((\w+)\)|@Injected\(\\?\.?(\w+)\)|resolve\((\w+)\.self\)|@EnvironmentObject\s+(?:private\s+)?var\s+\w+:\s*(\w+)"),
+  "inject": re.compile(r"@Dependency\(\\?\.?(\w+)\)|@Environment\((\w+)\)|@Injected\(\\?\.?(\w+)\)|resolve\((\w+)\.self\)|@EnvironmentObject\s+(?:private\s+)?var\s+\w+:\s*(\w+)|\b([A-Z]\w+)\.(?:shared|default|standard|current|main)\b"),
   "nav": re.compile(r"NavigationLink\([^)]*value:\s*(\w+)(?:\.\w+)?|\.navigationDestination\(for:\s*(\w+)\.self|push\((\w+)|StackState<(\w+)|NavigationLink\(destination:\s*(\w+)\("),
   "route_def": re.compile(r"case\s+(\w+)(?:\([^)]*\))?\s*(?://|$)"),  # only applied in files whose kind is route
-  "http": re.compile(r"\.(get|post|put|patch|delete)\([^)]*?path:\s*\"(/[\w/{}.-]*)\"|\b(GET|POST|PUT|PATCH|DELETE)\b\s*[\"']?(/[\w/{}.-]*)|path:\s*\"(/[\w/{}.-]*)\"|URL\(string:\s*\"[^\"]*?(/v\d[\w/{}.-]*|/api[\w/{}.-]*)\""),
-  "storage": re.compile(r"@Model\b|NSManagedObject|ModelContext|GRDB|Realm|UserDefaults\.standard|Keychain|FileManager\.default|CoreData"),
+  "http": re.compile(r"\.(get|post|put|patch|delete)\([^)]*?path:\s*\"(/[\w/{}.-]*)\"|\b(GET|POST|PUT|PATCH|DELETE)\b\s*[\"']?(/[\w/{}.-]*)|(?:path|to|endpoint|route):\s*\"(/?[\w{}.-]+(?:/[\w{}.-]+)+)\"|URL\(string:\s*\"[^\"]*?(/v\d[\w/{}.-]*|/api[\w/{}.-]*)\""),
+  "storage": re.compile(r"@Model\b|NSManagedObject|ModelContext|GRDB|Realm|forKey:\s*\"(\w+)\"|UserDefaults\(suiteName|UserDefaults\.standard|Keychain|FileManager\.default|CoreData"),
   "storage_write": re.compile(r"\.insert\(|\.delete\(|\.save\(|\.set\(|\.write\b|\.removeObject\(|\.setValue\("),
   "symbol": re.compile(r"^\s*(?:@\w+\s+)*(?:public |internal |private |fileprivate |open |final |indirect )*(?:class|struct|enum|actor|protocol)\s+(\w+)", re.M),
   "supertypes": re.compile(r"(?:class|struct|enum|actor|extension)\s+(\w+)\s*:\s*([^{\n]+?)\s*\{"),
   "observes": re.compile(r"\.sink\(|\.assign\(|for await|\.onReceive\(|\.receive\(on|\.task\s*\{|withObservationTracking"),
-  "event_decl": re.compile(r"(\w+)\s*(?::\s*[\w<>, .]+)?\s*=\s*(?:PassthroughSubject|CurrentValueSubject|AsyncStream)"),
+  "event_decl": re.compile(r"(\w+)\s*(?::\s*[\w<>, .]+)?\s*=\s*(?:PassthroughSubject|CurrentValueSubject|AsyncStream|Notification\.Name\()"),
   "emits": re.compile(r"\.send\(|\.yield\(|continuation\.yield"),
+  "event_post": re.compile(r"\.post\(\s*name:\s*[\w.]*?(\w+)\s*[,)]"),
+  "event_observe": re.compile(r"addObserver\((?:[^()]|\([^()]*\))*?name:\s*[\w.]*?(\w+)\s*[,)]|publisher\(for:\s*[\w.]*?(\w+)\s*[,)]|onReceive\([\w.]*?\.publisher\(for:\s*[\w.]*?(\w+)\s*[,)]"),
   "flag": re.compile(r"isEnabled\(\.?(\w+)\)|FeatureFlags?\.(?!isEnabled)(\w+)"),
   "doc": re.compile(r"^\s*///\s*(.+)$", re.M),
  },
@@ -111,13 +117,24 @@ def classify(path, text):
     return "other", "unknown"
 
 def humanize(name):
-    return re.sub(r"(?<!^)(?=[A-Z])", " ", name).lower()
+    name = name.replace("+", " + ")
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name).lower()
 
 def auto_summary(text, kind, name, platform):
-    m = P[platform]["doc"].search(text)
-    if m:
-        line = m.group(1).strip().strip("*/ ").split("\n")[0].strip()
-        if 10 <= len(line) <= 160 and not line.startswith("Copyright"): return "AUTO: " + line
+    line = ""
+    first = P[platform]["symbol"].search(text)
+    if first:
+        above = text[:first.start()].rstrip("\n").split("\n")
+        doc = []
+        for ln in reversed(above):
+            st = ln.strip()
+            if st.startswith("///") or st.startswith("*") or st.startswith("/**") or st.startswith("*/") or st.startswith("@"):
+                if st.startswith("@"): continue
+                doc.append(st.lstrip("/* ").strip())
+            else: break
+        doc = [d for d in reversed(doc) if d and not d.startswith("Copyright")]
+        if doc: line = doc[0]
+    if 10 <= len(line) <= 160: return "AUTO: " + line
     return f"AUTO: {kind} `{name}` ({humanize(name)}); no doc comment"
 
 def hash_text(t): return hashlib.sha1(t.encode("utf-8", "ignore")).hexdigest()[:12]
@@ -240,13 +257,24 @@ def main():
             pm = R["package"].search(t)
             if pm: pkg2ids[pm.group(1)].append(nid)
         name = symbols[0] if symbols else os.path.basename(nid)
+        top = f.split("/")[0] if "/" in f else ""
         nodes[nid] = {"id": nid, "class": "code", "kind": kind, "path": f, "files": grouped, "name": name, "symbols": symbols,
-                      "facets": {"dir": os.path.dirname(f) or ".", "layer": layer, "domain": [], "owner": owner_of(f, codeowners), "flows": []},
+                      "facets": {"dir": os.path.dirname(f) or ".", "layer": layer, "module": top, "domain": [], "owner": owner_of(f, codeowners), "flows": []},
                       "summary": "", "summarySource": "auto", "sourceHash": hash_text(t), "stale": False, "tier": "row", "entry": False,
                       "risk": "unknown", "tags": ["security"] if SEC_RE.search(f) else [],
                       "metrics": {"loc": t.count("\n") + 1, "fanIn": 0, "fanOut": 0, "churn6m": sum(churn.get(x, 0) for x in grouped),
                                   "lastChanged": max([last.get(x, "") for x in grouped] or [""]), "testCount": 0, "flowCount": 0, "dirFanIn": 0}}
 
+    ext_base = {}
+    if pl == "ios":
+        for nid, n in nodes.items():
+            em = re.match(r"(\w+)\+\w+$", os.path.basename(nid))
+            if not em: continue
+            base = sym2id.get(em.group(1))
+            if base and base != nid:
+                ext_base[nid] = base; n["kind"], n["facets"]["layer"] = nodes[base]["kind"], nodes[base]["facets"]["layer"]
+            else:
+                n["kind"], n["facets"]["layer"] = "other", "unknown"
     # ---- edges ----
     edges = {}
     def add(fr, to, ty, ev, conf="medium"):
@@ -374,6 +402,13 @@ def main():
             for m in R["observes"].finditer(t):
                 # observer of which event? attribute to events declared in nodes this file depends on, resolved later; record generic edge now
                 pass
+        if pl == "ios":
+            em = re.match(r"(\w+)\+\w+$", os.path.basename(nid))
+            if em and em.group(1) in sym2id and sym2id[em.group(1)] != nid: add(nid, sym2id[em.group(1)], "extends", f"{f}:1", "high")
+            for m in R["event_post"].finditer(t): add(nid, contract("event:" + m.group(1), "event", m.group(1)), "emits", ev(f, t, m), "high")
+            for m in R["event_observe"].finditer(t):
+                g = next((x for x in m.groups() if x), None)
+                if g: add(nid, contract("event:" + g, "event", g), "observes", ev(f, t, m), "high")
         # flags
         for m in R["flag"].finditer(t):
             g = next((x for x in m.groups() if x), None)
@@ -391,6 +426,55 @@ def main():
                 add(tgt, nid, "tested_by", f"{f}:symbol", "high" if s == stem or base_match else "medium")
             else:
                 add(nid, tgt, "calls", f"{f}:symbol", "low")
+    sb_entries = set(); sb_ident, segue_ident = {}, {}
+    if pl == "ios":
+        for sb in walk(root, (".storyboard", ".xib")):
+            try: x = open(os.path.join(root, sb), encoding="utf-8", errors="ignore").read()
+            except Exception: continue
+            tags = [(m.start(), m.group(1), dict(re.findall(r'(\w+)="([^"]*)"', m.group(2)))) for m in re.finditer(r"<(\w+)\s([^>]*?)/?>", x)]
+            id2cls, id2root = {}, {}
+            for pos, tag, at in tags:
+                if "id" in at and "customClass" in at: id2cls[at["id"]] = at["customClass"]
+            scenes = [(m.start(), m.end()) for m in re.finditer(r"<scene\b.*?</scene>", x, re.S)]
+            owner_of_scene = []
+            for s0, s1 in scenes:
+                vc = [(pos, tag, at) for pos, tag, at in tags if s0 <= pos < s1 and tag.lower().endswith("controller") and "id" in at]
+                segs = [(pos, at) for pos, tag, at in tags if s0 <= pos < s1 and tag == "segue" and "destination" in at]
+                if not vc: continue
+                oid, oat = vc[0][2]["id"], vc[0][2]
+                for pos, at in segs:
+                    if at.get("relationship") == "rootViewController": id2root[oid] = at["destination"]
+                owner_of_scene.append((oid, segs))
+            def cls_of(i, depth=0):
+                if i in id2cls: return id2cls[i]
+                if i in id2root and depth < 4: return cls_of(id2root[i], depth + 1)
+                return None
+            for pos, tag, at in tags:
+                if "storyboardIdentifier" in at and "id" in at: sb_ident[at["storyboardIdentifier"]] = cls_of(at["id"])
+                if tag == "segue" and "identifier" in at and "destination" in at: segue_ident[at["identifier"]] = cls_of(at["destination"])
+            init = re.search(r'initialViewController="([^"]+)"', x)
+            if init:
+                c = cls_of(init.group(1))
+                if c in sym2id: sb_entries.add(sym2id[c])
+            for s0, s1 in scenes:
+                vc = [(pos, tag, at) for pos, tag, at in tags if s0 <= pos < s1 and tag.lower().endswith("controller") and "id" in at]
+                if not vc: continue
+                oc = cls_of(vc[0][2]["id"])
+                if oc not in sym2id: continue
+                for pos, tag, at in tags:
+                    if s0 <= pos < s1 and "customClass" in at and at["customClass"] != oc and at["customClass"] in sym2id and sym2id[at["customClass"]] != sym2id[oc]:
+                        add(sym2id[oc], sym2id[at["customClass"]], "calls", f"{sb}:{line_of(x, pos)}", "high")
+            for oid, segs in owner_of_scene:
+                oc = cls_of(oid)
+                if oc not in sym2id: continue
+                for pos, at in segs:
+                    dc = cls_of(at["destination"])
+                    if dc in sym2id and sym2id[dc] != sym2id[oc]:
+                        add(sym2id[oc], sym2id[dc], "navigates_to", f"{sb}:{line_of(x, pos)}", "high")
+        for nid, t in texts.items():
+            for m in re.finditer(r"instantiateViewController\(withIdentifier:\s*\"(\w+)\"|performSegue\(withIdentifier:\s*\"(\w+)\"", t):
+                c = sb_ident.get(m.group(1)) if m.group(1) else segue_ident.get(m.group(2))
+                if c in sym2id and sym2id[c] != nid: add(nid, sym2id[c], "navigates_to", ev(nodes[nid]["path"], t, m), "high")
     # observes: a file that observes and depends on an emitter -> observes the emitter's events
     emitters = collections.defaultdict(list)
     for e in edges.values():
@@ -453,9 +537,13 @@ def main():
     for nid, n in nodes.items():
         if n["kind"] == "test": continue
         nav_in = any(e["type"] in ("navigates_to", "defines_route") for e in incoming[nid])
-        if n["entry"] or n["kind"] == "worker" or nav_in or (n["kind"] in ("screen", "route") and ENTRY_NAME[pl].search(n["path"])) \
+        if nid in ext_base: continue
+        if n["entry"] or n["kind"] == "worker" or nav_in or nid in sb_entries or (n["kind"] in ("screen", "route", "config") and ENTRY_NAME[pl].search(n["path"])) \
            or any(e["type"] == "exposes_endpoint" for e in outgoing[nid]):
             n["entry"] = True
+    ext_files = collections.defaultdict(list)
+    for e in E:
+        if e["type"] == "extends" and e["confidence"] == "high" and "+" in os.path.basename(e["from"]): ext_files[e["to"]].append(e["from"])
     flows = []
     for nid, n in sorted(nodes.items()):
         if not n["entry"]: continue
@@ -473,6 +561,10 @@ def main():
                 nxt = e["to"]
                 if nxt.startswith("ext:") or nxt in seen: continue
                 seen[nxt] = seen[cur] + 1; parent[nxt] = cur; q.append(nxt)
+                for xf in ext_files.get(nxt, []):
+                    if xf not in seen: seen[xf] = seen[nxt]; parent[xf] = nxt; q.append(xf)
+            for xf in ext_files.get(cur, []):
+                if xf not in seen: seen[xf] = seen[cur]; parent[xf] = cur; q.append(xf)
         fl_files = sorted(x for x in seen if x in nodes and nodes[x]["kind"] != "test")
         fl_contracts = sorted(x for x in seen if x in contracts)
         tests = sorted({e["to"] for x in fl_files for e in outgoing[x] if e["type"] == "tested_by"})
@@ -496,7 +588,7 @@ def main():
     # ---- promotion (one-way) ----
     for nid, n in nodes.items():
         if n["kind"] == "test": continue
-        cross = n["metrics"]["flowCount"] >= 5 or n["metrics"]["dirFanIn"] >= 3
+        cross = n["metrics"]["dirFanIn"] >= 3 or (n["metrics"]["flowCount"] >= 5 and n["metrics"]["fanIn"] >= 3)
         if n["risk"] == "high" or cross:
             n["tier"] = "card"
             ann["nodes"].setdefault(nid, {})["tier"] = "card"
@@ -511,7 +603,7 @@ def main():
             if e["type"] not in check_types or order[e["confidence"]] < minc or e["from"] not in nodes or e["to"] not in nodes: continue
             lf, lt = nodes[e["from"]]["facets"]["layer"], nodes[e["to"]]["facets"]["layer"]
             allowed = rules.get("layers", {}).get(lf, ["*"])
-            if "*" not in allowed and lt not in allowed:
+            if "*" not in allowed and lt not in allowed and lt != "unknown":
                 violations.append({"from": e["from"], "to": e["to"], "type": e["type"], "rule": f"layer {lf} may not depend on {lt}", "evidence": e["evidence"]})
             for dr in rules.get("dirs", []):
                 if "{{" in dr.get("from", "") or dr.get("allow", True): continue
