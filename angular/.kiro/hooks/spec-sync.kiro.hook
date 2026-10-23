@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Keep spec in sync",
+  "description": "When a component/service changes, update or create its colocated spec",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/app/**/!(*.spec).ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Check the colocated *.spec.ts for the edited file. Add/adjust tests following .kiro/steering/testing.md and the exemplar spec. Run {{TEST_ONE_CMD}}."
+  }
+}

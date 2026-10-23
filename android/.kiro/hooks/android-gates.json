@@ -1,0 +1,39 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "block-protected-files",
+      "trigger": "PreToolUse",
+      "matcher": "write|edit",
+      "action": {
+        "type": "command",
+        "command": "scripts/ai/block-protected-paths.sh"
+      }
+    },
+    {
+      "name": "format-kotlin-on-save",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(kt|kts)$",
+      "action": {
+        "type": "command",
+        "command": "{{./gradlew spotlessApply -q}}"
+      }
+    },
+    {
+      "name": "verify-after-spec-task",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "agent",
+        "prompt": "Run {{./gradlew detekt lint{{Variant}} test{{Variant}}UnitTest}}. If anything fails, fix it before marking the task complete. Confirm every new class has a test and every new screen is registered in navigation and DI."
+      }
+    },
+    {
+      "name": "steering-drift-reminder",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "If this session added a dependency, module, or new pattern, list the steering files in docs/ai/ that must be updated."
+      }
+    }
+  ]
+}

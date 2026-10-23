@@ -1,0 +1,20 @@
+name: ai-context-drift
+on: [pull_request]
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/ai/generate.py
+      - run: |
+          git diff --exit-code -- AGENTS.md CLAUDE.md .kiro/steering .claude/rules .cursor/rules .github/instructions .devin/rules .junie/rules \
+            || (echo "AI context drift: edit docs/ai and re-run scripts/ai/generate.py" && exit 1)
+      - name: Verify version facts still match the catalog
+        run: |
+          agp=$(grep -E '^agp *=' gradle/libs.versions.toml | cut -d'"' -f2 || true)
+          [ -z "$agp" ] || grep -q "$agp" docs/ai/tech.md || (echo "tech.md AGP version stale" && exit 1)
+      - name: Code index is current and complete
+        run: |
+          [ -f docs/ai/code-index/graph.json ] || { echo "no code index yet (run the repo scan)"; exit 0; }
+          python3 scripts/ai/build_code_index.py --platform android --root . --out docs/ai/code-index --check
+          git diff --exit-code -- docs/ai/code-index || (echo "code index views are stale: run build_code_index.py and commit docs/ai/code-index" && exit 1)

@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Lint changed Angular file",
+  "description": "Run ESLint on edited TS/HTML files and fix auto-fixable issues",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.ts",
+      "src/**/*.html",
+      "libs/**/*.ts",
+      "libs/**/*.html"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run {{LINT_ONE_CMD}} on the edited file. Fix auto-fixable issues only. Report remaining violations; do not disable rules."
+  }
+}

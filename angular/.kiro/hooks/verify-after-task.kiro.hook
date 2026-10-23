@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Verify after spec task",
+  "description": "Run gates after each spec task",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "{{LINT_CMD}} && {{TYPECHECK_CMD}} && {{TEST_AFFECTED_CMD}}"
+  }
+}

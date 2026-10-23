@@ -1,0 +1,12 @@
+files:
+  product.md:            { scope: always }
+  tech.md:               { scope: always }
+  structure.md:          { scope: always }
+  architecture.md:       { scope: always }
+  conventions.md:        { scope: glob, globs: ["**/*.swift"] }
+  ios-api-guardrails.md: { scope: glob, globs: ["**/*.swift"] }
+  testing.md:            { scope: glob, globs: ["**/*Tests/**/*.swift", "**/Tests/**/*.swift"] }
+  api-contracts.md:      { scope: glob, globs: ["**/Networking/**", "**/Data/**", "**/*DTO*.swift"] }
+  exemplars.md:          { scope: auto, description: "Golden-path feature & shared infra to copy for new features/tests" }
+  repo-scan-prompt.md:   { scope: manual }
+  code-index.md:          { scope: auto, description: "How to use the repo code index (components, call graph, dependents, impact) before designing or changing code" }

@@ -1,0 +1,18 @@
+{
+  "_doc": "Dependency rules the graph enforces. These defaults are deliberately permissive (the regex classifier cannot tell a repository interface from its implementation). After the repo scan, tighten them to what the repo actually does: e.g. domain -> [domain] when repository interfaces live in domain. Only structural and behavioural edges between code nodes are checked. '*' allows everything.",
+  "layers": {
+    "ui":           ["ui", "presentation", "domain", "app"],
+    "presentation": ["presentation", "domain", "data", "app"],
+    "domain":       ["domain", "data"],
+    "data":         ["data", "domain", "infra"],
+    "infra":        ["infra", "domain", "data"],
+    "app":          ["*"],
+    "test":         ["*"],
+    "unknown":      ["*"]
+  },
+  "dirs": [
+    { "from": "{{features/*}}", "to": "{{features/*}}", "allow": false, "note": "feature-to-feature dependencies must go through shared/core" }
+  ],
+  "checkEdgeTypes": ["imports", "extends", "implements", "injects", "calls", "observes"],
+  "minConfidence": "medium"
+}

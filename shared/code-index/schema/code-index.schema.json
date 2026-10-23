@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "code-index graph (v2: flat file-level graph with contract nodes, facets and flows)",
+  "type": "object",
+  "required": ["version", "platform", "generatedAt", "nodes", "edges", "flows"],
+  "properties": {
+    "version": { "const": 2 },
+    "platform": { "enum": ["ios", "android", "angular", "other"] },
+    "generatedAt": { "type": "string" },
+    "extractor": {
+      "type": "object",
+      "description": "How the graph was produced; agents and reviewers use it to judge edge quality",
+      "properties": {
+        "tool": { "type": "string", "description": "regex | symbolgraph | nx | gradle | ..." },
+        "confidenceNote": { "type": "string" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "codeNodes": { "type": "integer" }, "contractNodes": { "type": "integer" }, "edges": { "type": "integer" },
+        "flows": { "type": "integer" }, "stale": { "type": "integer" }, "violations": { "type": "integer" },
+        "unreachable": { "type": "integer" }, "orphanAnnotations": { "type": "integer" }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "class", "kind"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "code: path without extension. contract: endpoint:GET /v1/x | storage:table:x | route:x | event:x | flag:x. external: ext:Library"
+          },
+          "class": { "enum": ["code", "contract", "external"] },
+          "kind": {
+            "enum": [
+              "screen", "component", "viewmodel", "store", "usecase", "repository", "service", "api", "dto", "model", "entity", "dao",
+              "interceptor", "route", "di-module", "worker", "test", "config", "other",
+              "endpoint", "storage", "route-contract", "event", "flag",
+              "library"
+            ]
+          },
+          "path": { "type": "string", "description": "code nodes only; primary file" },
+          "files": { "type": "array", "items": { "type": "string" }, "description": "all files grouped under this node (e.g. Angular .ts/.html/.scss)" },
+          "name": { "type": "string" },
+          "symbols": { "type": "array", "items": { "type": "string" }, "description": "types/functions declared in this file; used for lookup, never for prose" },
+          "facets": {
+            "type": "object",
+            "description": "Groupings are facets on the node, not a hierarchy. Every view (INDEX tables, dir cards, flow cards) is generated from these.",
+            "properties": {
+              "dir": { "type": "string", "description": "directory bucket after collapse rules" },
+              "layer": { "enum": ["ui", "presentation", "domain", "data", "infra", "app", "test", "unknown"] },
+              "module": { "type": "string", "description": "optional: build-system module when the platform has one" },
+              "domain": { "type": "array", "items": { "type": "string" } },
+              "owner": { "type": "string" },
+              "flows": { "type": "array", "items": { "type": "string" }, "description": "flow ids this node is reachable from" }
+            }
+          },
+          "summary": { "type": "string", "description": "ONE line: what it does. The only per-file prose the index holds." },
+          "summarySource": { "enum": ["auto", "agent"] },
+          "sourceHash": { "type": "string", "description": "hash of the file when the summary was written" },
+          "stale": { "type": "boolean", "description": "file changed since the agent summary was written" },
+          "tier": { "enum": ["row", "card"], "description": "row: appears only in generated tables. card: has components/<id>.md with hand-written prose. Promotion is one-way." },
+          "entry": { "type": "boolean", "description": "flow entry point (screen reached by navigation, worker, exposed endpoint, or annotated)" },
+          "risk": { "enum": ["low", "medium", "high", "unknown"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "loc": { "type": "integer" }, "fanIn": { "type": "integer", "description": "distinct dependents over high/medium structural+behavioural edges" },
+              "fanOut": { "type": "integer" }, "churn6m": { "type": "integer" }, "lastChanged": { "type": "string" },
+              "testCount": { "type": "integer" }, "flowCount": { "type": "integer" }, "dirFanIn": { "type": "integer", "description": "distinct directories depending on this node" }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "from depends on to: if `to` changes contract or behaviour, `from` may break. Reverse it for impact.",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "type", "confidence"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "type": {
+            "enum": [
+              "imports", "extends", "implements", "injects",
+              "calls", "observes", "navigates_to",
+              "consumes_endpoint", "exposes_endpoint", "reads", "writes", "emits", "defines_route",
+              "tested_by"
+            ],
+            "description": "structural: imports/extends/implements/injects. behavioural: calls/observes/navigates_to. data: consumes_endpoint/exposes_endpoint/reads/writes/emits/defines_route. verification: tested_by"
+          },
+          "evidence": { "type": "string", "description": "path:line" },
+          "confidence": { "enum": ["high", "medium", "low"], "description": "only high/medium drive fanIn and risk; low appears in impact as 'possible'" },
+          "strength": { "type": "integer", "description": "number of references found" }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "description": "Vertical slices: everything reachable from an entry point. Generated; never hand-written.",
+      "items": {
+        "type": "object",
+        "required": ["id", "entry", "files"],
+        "properties": {
+          "id": { "type": "string" },
+          "entry": { "type": "string" },
+          "entryKind": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string" } },
+          "contracts": { "type": "array", "items": { "type": "string" } },
+          "shared": { "type": "array", "items": { "type": "string" }, "description": "files also in >= sharedThreshold other flows" },
+          "tests": { "type": "array", "items": { "type": "string" } },
+          "keyPath": { "type": "array", "items": { "type": "string" }, "description": "entry -> ... -> first I/O contract, file at each hop" },
+          "confidence": { "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "description": "edges that break rules/allowed-edges.json",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string" }, "to": { "type": "string" }, "type": { "type": "string" },
+          "rule": { "type": "string" }, "evidence": { "type": "string" }
+        }
+      }
+    }
+  }
+}

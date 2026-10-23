@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "refresh-code-index",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "agent",
+        "prompt": "Follow docs/ai/code-index/prompts/update-code-index.md for the files changed in this task: regenerate with scripts/ai/build_code_index.py, rewrite the summaries of changed files in annotations.json, update the prose of touched flows and promoted cards, run query_code_index.py contract for every contract you changed and report every party, and make build_code_index.py --check pass."
+      }
+    }
+  ]
+}

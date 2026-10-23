@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Refresh code index after task",
+  "description": "Keep docs/ai/code-index current after each spec task",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Follow docs/ai/code-index/prompts/update-code-index.md for the files changed in this task: regenerate with build_code_index.py, rewrite the summaries of changed files in annotations.json, update the prose of touched flows and promoted cards, run `query_code_index.py contract` for every contract you changed and report every party, and make `build_code_index.py --check` pass."
+  }
+}
