@@ -27,13 +27,14 @@ It stores what is expensive to rediscover and links to what is cheap to read. It
 | `flows/<id>.md` | entry, key path (file at each hop), files, shared files, contracts, tests + hand-written invariants | script + agent tail |
 | `components/<id>.md` | promoted nodes only: metrics, uses, used-by, flows, tests + hand-written responsibility, invariants, gotchas | script + agent tail |
 | `contracts.md` | every endpoint, table/key, route, event and flag with providers and consumers | script only |
+| `dependencies.md` | every external import grouped by declared package (lock file), version, allowlist status from `tech.md`, importers, flows; declared-but-unused packages | script only |
 | `hotspots.md`, `violations.md` | top-20 risk; edges that break `rules/allowed-edges.json` | script only |
 | `rules/allowed-edges.json` | allowed layer→layer and dir→dir dependencies | tech lead |
 | `impact.md`, `PLATFORM.md`, `prompts/`, `templates/` | recipe, platform notes, agent prompts, prose skeletons | kit |
 
 ## Scripts (`scripts/ai/`)
 - `build_code_index.py --platform ios|android|angular [--check]` — regenerates everything; `--check` fails on missing summaries, stale promoted nodes,
-  unwritten card prose or rule violations. Regex-based; `PLATFORM.md` names the tool that should replace each extractor.
+  unwritten card prose, rule violations, or a third-party import that is not on the `tech.md` allowlist (once that table is filled). Regex-based; `PLATFORM.md` names the tool that should replace each extractor.
 - `query_code_index.py impact|dependents|flows|tests|contract|find|node|violations|stale` — the only way agents should consult the graph.
 
 ## Dependency model
@@ -42,6 +43,8 @@ Structural (`imports`, `extends`, `implements`, `injects`), behavioural (`calls`
 (`consumes_endpoint`, `exposes_endpoint`, `reads`, `writes`, `emits`, `defines_route`), verification (`tested_by`).
 Only high/medium edges drive fan-in and risk; low-confidence symbol matches appear in impact output as *possible*.
 Contract nodes make the invisible couplings (DI by name, routing by string, streams, HTTP, tables) explicit: providers and consumers meet on the node.
+External nodes (`ext:`) are matched to the lock file (Podfile.lock / Package.resolved, libs.versions.toml, package.json + package-lock.json) and to the
+allowlist table in `docs/ai/tech.md`, so the "never add a dependency" rule is checked, not just stated.
 
 ## Lifecycle
 1. Scan ends with `prompts/build-code-index.md`: generate, fix entry points and rules, write summaries in priority order, write prose where the code is silent.

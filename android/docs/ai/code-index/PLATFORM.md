@@ -23,5 +23,10 @@ are NOT required: when the repo is modularized, the module name is simply the le
 - Symbols/complexity: `detekt --report xml`, Kotlin `-Xdump-declarations-to`, or `kotlinx-ast` → better `symbols`, `calls` with medium confidence.
 - Tests: `src/test`, `src/androidTest`, screenshot dirs → `tested_by`.
 
+## Dependencies view
+`dependencies.md` is built from `gradle/libs.versions.toml` (group → import prefix; `version.ref` resolved). Imports under the project's own root package
+are local; `android.*`, `java.*`, `javax.*`, `kotlin.*` are system; `androidx.*` and `kotlinx.*` must appear in the catalog. Unresolved rows usually mean a
+catalog entry whose group differs from the Kotlin package (e.g. `com.squareup.retrofit2` vs `retrofit2`): add the package name to the allowlist Import column.
+
 ## Card extras for Android (write them in the prose sections when relevant)
 Dispatcher usage, lifecycle/process-death handling (`SavedStateHandle`), permissions touched, R8 keep-rule needs, minSdk guards, feature-flag gates, Play data-safety categories.

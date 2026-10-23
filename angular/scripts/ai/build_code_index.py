@@ -202,6 +202,117 @@ def split_top(s):
     out.append(cur)
     return [re.sub(r"\(.*", "", x).strip().split(".")[-1].split("<")[0] for x in out if x.strip()]
 
+# ---------- dependencies ----------
+APPLE_FRAMEWORKS = {"Foundation", "UIKit", "SwiftUI", "Combine", "CoreData", "CoreLocation", "CoreGraphics", "QuartzCore", "Security", "XCTest", "Testing", "AppKit",
+                    "WidgetKit", "SwiftData", "Observation", "AVFoundation", "MapKit", "StoreKit", "UserNotifications", "WebKit", "Photos", "PhotosUI", "CoreImage",
+                    "CoreML", "Vision", "AuthenticationServices", "LocalAuthentication", "CloudKit", "os", "OSLog", "Darwin", "Dispatch", "Network", "BackgroundTasks",
+                    "Intents", "CoreMotion", "CoreBluetooth", "HealthKit", "PassKit", "MessageUI", "SafariServices", "LinkPresentation", "CoreText", "Accelerate", "simd",
+                    "GameKit", "SpriteKit", "SceneKit", "ARKit", "RealityKit", "CryptoKit", "CoreSpotlight", "CoreTelephony", "SystemConfiguration", "EventKit", "Contacts", "NaturalLanguage", "Speech", "CoreHaptics", "TipKit", "ActivityKit", "AppIntents"}
+NODE_BUILTINS = {"fs", "path", "os", "url", "http", "https", "crypto", "util", "events", "stream", "child_process", "zlib", "buffer", "assert", "node:fs", "node:path"}
+
+def read_lock(root, pl):
+    """returns {package: {"version": str, "modules": set(), "source": str}}"""
+    pk = {}
+    def add(name, ver, source, modules=()):
+        e = pk.setdefault(name, {"version": ver or "", "modules": set(), "source": source})
+        if ver and not e["version"]: e["version"] = ver
+        e["modules"] |= set(modules)
+    if pl == "ios":
+        lp = os.path.join(root, "Podfile.lock")
+        if os.path.exists(lp):
+            txt = open(lp, encoding="utf-8", errors="ignore").read()
+            sec = txt.split("DEPENDENCIES:")[0]
+            for m in re.finditer(r"^  - ([\w.+/-]+)(?:/[\w.+/-]+)? \(([^)]+)\)", sec, re.M):
+                name = m.group(1).split("/")[0]; mods = {name, name.replace("Swift", ""), name.replace("-", "")}
+                pdir = os.path.join(root, "Pods", name)
+                if os.path.isdir(pdir):
+                    for d, dirs, fs in os.walk(pdir):
+                        for x in dirs:
+                            if x.endswith((".framework", ".xcframework")): mods.add(x.split(".")[0])
+                        for f in fs:
+                            if f.endswith(".modulemap"):
+                                mm = re.search(r"module\s+(\w+)", open(os.path.join(d, f), errors="ignore").read())
+                                if mm: mods.add(mm.group(1))
+                        if d.count(os.sep) - pdir.count(os.sep) > 2: dirs[:] = []
+                add(name, m.group(2), "Podfile.lock", mods)
+        for d, dirs, fs in os.walk(root):
+            dirs[:] = [x for x in dirs if x not in SKIP and not x.startswith(".") or x.endswith(".xcworkspace") or x == ".swiftpm"]
+            for f in fs:
+                if f == "Package.resolved":
+                    try: j = json.load(open(os.path.join(d, f)))
+                    except Exception: continue
+                    pins = j.get("pins") or j.get("object", {}).get("pins", [])
+                    for pin in pins:
+                        ident = pin.get("identity") or pin.get("package", ""); ver = (pin.get("state") or {}).get("version") or (pin.get("state") or {}).get("revision", "")[:7]
+                        base = re.sub(r"^swift-", "", ident); mods = {ident, base, "".join(w.capitalize() for w in base.split("-")), base.replace("-", "")}
+                        add(ident, ver, os.path.relpath(os.path.join(d, f), root), mods)
+    elif pl == "android":
+        for cat in ("gradle/libs.versions.toml", "libs.versions.toml"):
+            cp = os.path.join(root, cat)
+            if not os.path.exists(cp): continue
+            txt = open(cp, encoding="utf-8", errors="ignore").read()
+            vers = dict(re.findall(r'^\s*([\w-]+)\s*=\s*"([^"]+)"', txt.split("[libraries]")[0], re.M)) if "[versions]" in txt else {}
+            libs = txt.split("[libraries]")[1].split("[bundles]")[0].split("[plugins]")[0] if "[libraries]" in txt else ""
+            for m in re.finditer(r'^\s*([\w-]+)\s*=\s*\{([^}]*)\}', libs, re.M):
+                body = m.group(2)
+                grp = re.search(r'group\s*=\s*"([^"]+)"', body); mod = re.search(r'module\s*=\s*"([^"]+)"', body); nm = re.search(r'name\s*=\s*"([^"]+)"', body)
+                group = grp.group(1) if grp else (mod.group(1).split(":")[0] if mod else "")
+                artifact = nm.group(1) if nm else (mod.group(1).split(":")[1] if mod else m.group(1))
+                vr = re.search(r'version\.ref\s*=\s*"([^"]+)"', body); vv = re.search(r'version\s*=\s*"([^"]+)"', body)
+                ver = vers.get(vr.group(1), vr.group(1)) if vr else (vv.group(1) if vv else "")
+                if group: add(f"{group}:{artifact}", ver, cat, {group, group.split(".")[-1]})
+            break
+    elif pl == "angular":
+        pj = os.path.join(root, "package.json")
+        if os.path.exists(pj):
+            try: j = json.load(open(pj))
+            except Exception: j = {}
+            lock = {}
+            pl_path = os.path.join(root, "package-lock.json")
+            if os.path.exists(pl_path):
+                try:
+                    lj = json.load(open(pl_path))
+                    for k, v in (lj.get("packages") or {}).items():
+                        if k.startswith("node_modules/") and k.count("node_modules/") == 1: lock[k[len("node_modules/"):]] = v.get("version", "")
+                except Exception: pass
+            for sec, src in (("dependencies", "package.json"), ("devDependencies", "package.json (dev)")):
+                for name, rng in (j.get(sec) or {}).items(): add(name, lock.get(name) or rng, src, {name})
+    return pk
+
+def read_allowlist(root):
+    """tech.md '## Dependencies' table -> {name_or_import_lower: version}; None when the table is still a template"""
+    tp = os.path.join(root, "docs", "ai", "tech.md")
+    if not os.path.exists(tp): return None
+    txt = open(tp, encoding="utf-8", errors="ignore").read()
+    m = re.search(r"^## Dependencies.*?$(.*?)(?=^## |\Z)", txt, re.S | re.M)
+    if not m: return None
+    rows = [r for r in m.group(1).splitlines() if r.startswith("|") and not r.startswith("|---") and "Library" not in r.split("|")[1]]
+    if not rows or any("{{" in r for r in rows): return None
+    allow = {}
+    for r in rows:
+        cells = [c.strip() for c in r.strip().strip("|").split("|")]
+        if len(cells) < 2: continue
+        lib, ver = cells[0], cells[1]
+        keys = {lib}
+        for imp in re.findall(r"`import\s+([\w.@/-]+)`", r) + re.findall(r"`([\w.@/-]+)`", cells[-1] if len(cells) > 3 else ""): keys.add(imp)
+        for kw in re.findall(r"\(([^)]*)\)", lib): keys |= {x.strip() for x in kw.split(",")}
+        for k in keys:
+            k = k.strip("` ").split(" ")[0]
+            if k: allow[k.lower()] = ver
+    return allow
+
+def match_package(ext_name, pl, packages):
+    n = ext_name.lower()
+    for pkg, e in packages.items():
+        mods = {x.lower() for x in e["modules"]} | {pkg.lower()}
+        if pl == "android":
+            if any(n == g or n.startswith(g + ".") for g in mods if "." in g) or n.split(".")[0] in mods: return pkg
+        elif pl == "angular":
+            if n == pkg.lower() or n.startswith(pkg.lower() + "/"): return pkg
+        else:
+            if n in mods: return pkg
+    return None
+
 # ---------- main ----------
 def main():
     ap = argparse.ArgumentParser()
@@ -738,6 +849,66 @@ def main():
     # violations.md
     open(os.path.join(out, "violations.md"), "w").write("# Dependency rule violations (rules/allowed-edges.json)\n\n" +
         ("| From | To | Edge | Rule | Evidence |\n|---|---|---|---|---|\n" + "".join(f"| `{v['from']}` | `{v['to']}` | {v['type']} | {v['rule']} | {v['evidence']} |\n" for v in violations) if violations else ("No rules file; copy `templates/../rules/allowed-edges.json` next to this index and tighten it.\n" if not rules else "None.\n")))
+    # dependencies.md
+    packages = read_lock(root, pl); allow = read_allowlist(root)
+    local_mods = {x for x in os.listdir(root) if os.path.isdir(os.path.join(root, x)) and x not in SKIP and not x.startswith(".")}
+    proj_prefix = ""
+    if pl == "android" and pkg2ids:
+        parts = [k.split(".") for k in pkg2ids]; common = []
+        for i in range(min(len(x) for x in parts)):
+            if len({x[i] for x in parts}) == 1: common.append(parts[0][i])
+            else: break
+        proj_prefix = ".".join(common[:3]) if len(common) >= 2 else ""
+    dep_rows, dep_problems = [], []
+    ext_nodes = [n for n in contracts.values() if n["class"] == "external"]
+    used_pkgs = set()
+    for x in sorted(ext_nodes, key=lambda n: n["name"].lower()):
+        name = x["name"]; importers = sorted({e["from"] for e in incoming[x["id"]] if e["from"] in nodes})
+        fl = sorted({f for i in importers for f in nodes[i]["facets"]["flows"]})
+        pkg = match_package(name, pl, packages)
+        top = name.split(".")[0].split("/")[0]
+        if pl == "ios" and (name in APPLE_FRAMEWORKS or top in APPLE_FRAMEWORKS): origin, status = "system", "ok"
+        elif pl == "android" and top in ("java", "javax", "kotlin", "android", "dalvik"): origin, status = "system", "ok"
+        elif pl == "angular" and (name in NODE_BUILTINS or name.startswith("node:")): origin, status = "system", "ok"
+        elif pkg: origin = pkg; used_pkgs.add(pkg); status = "ok"
+        elif name in local_mods or top in local_mods or (proj_prefix and name.startswith(proj_prefix + ".")): origin, status = "local module", "ok"
+        else: origin, status = "not in lock file", "unmatched"
+        ver = packages[pkg]["version"] if pkg else ""
+        on_allow = ""
+        if origin not in ("system", "local module"):
+            if allow is None: on_allow = "unchecked"
+            else:
+                keys = {name.lower(), top.lower(), (pkg or "").lower(), (pkg or "").split(":")[-1].lower(), (pkg or "").split(":")[0].lower()}
+                hit = next((k for k in keys if k and k in allow), None)
+                if hit:
+                    on_allow = "yes"
+                    av = allow[hit]
+                    if ver and av and not av.startswith("{{") and ver.split("@")[0].lstrip("^~") not in av and av.split(" ")[0].lstrip("^~") not in ver: status = "version mismatch"
+                else:
+                    on_allow = "NO"; status = "not on allowlist"; dep_problems.append(f"import `{name}` ({origin}) is not on the tech.md allowlist (used by {', '.join(nodes[i]['path'] for i in importers[:3])})")
+        key = origin if origin not in ("system", "local module", "not in lock file") else name
+        prev = next((r for r in dep_rows if r["key"] == key), None)
+        if prev:
+            prev["imports"].append(name); prev["importers"] = sorted(set(prev["importers"]) | set(importers)); prev["flows"] = sorted(set(prev["flows"]) | set(fl))
+            if status != "ok" and prev["status"] == "ok": prev["status"] = status
+        else:
+            dep_rows.append({"key": key, "import": name, "imports": [name], "origin": origin, "version": ver, "allow": on_allow, "importers": importers, "flows": fl, "status": status})
+    unused = sorted(p_ for p_ in packages if p_ not in used_pkgs and not (pl == "angular" and packages[p_]["source"].endswith("(dev)")))
+    g = ["# Dependencies — every external import, where it is declared, who uses it (generated; the allowlist lives in docs/ai/tech.md)", "",
+         f"Lock file(s): {', '.join(sorted({e['source'] for e in packages.values()})) or 'none found'} · declared packages: {len(packages)} · allowlist in tech.md: {'not filled (template)' if allow is None else f'{len(allow)} entries'}", "",
+         "## Third-party packages", "| Package | Version | On allowlist | Imports | Used by (files) | Flows | Status |", "|---|---|---|---|---|---|---|"]
+    for r in sorted(dep_rows, key=lambda r: (r["origin"] == "local module", r["key"].lower())):
+        if r["origin"] == "system": continue
+        label = r["origin"] if r["origin"] not in ("not in lock file",) else f"`{r['import']}` (not in lock file)"
+        imps = ", ".join(f"`{x}`" for x in r["imports"][:6]) + (f" (+{len(r['imports']) - 6})" if len(r["imports"]) > 6 else "")
+        g.append(f"| {label} | {r['version'] or '—'} | {r['allow'] or '—'} | {imps} | {', '.join('`' + nodes[i]['path'] + '`' for i in r['importers'][:8]) or '—'}{' …' if len(r['importers']) > 8 else ''} | {len(r['flows'])} | {r['status']} |")
+    g += ["", f"## Declared but never imported ({len(unused)})"] + ([f"- `{p_}` {packages[p_]['version']} ({packages[p_]['source']})" for p_ in unused] or ["- none"])
+    sysr = [r for r in dep_rows if r["origin"] == "system"]
+    g += ["", f"## Platform / system frameworks ({len(sysr)})", ", ".join(f"`{r['import']}` ({len(r['importers'])})" for r in sysr) or "—"]
+    open(os.path.join(out, "dependencies.md"), "w").write("\n".join(g) + "\n")
+    dep_stats = {"thirdParty": sum(1 for r in dep_rows if r["origin"] not in ("system", "local module")), "packages": len(packages), "notOnAllowlist": len(dep_problems), "unused": len(unused), "unmatched": sum(1 for r in dep_rows if r["status"] == "unmatched")}
+    graph["stats"]["dependencies"] = dep_stats
+    json.dump(graph, open(os.path.join(out, "graph.json"), "w"), indent=1)
     # INDEX.md
     cross = sorted((n for n in nodes.values() if "cross-cutting" in n["tags"]), key=lambda n: -n["metrics"]["flowCount"])
     g = [f"# Code Index — {os.path.basename(root)} ({pl}; generated {today}; regenerate with `python3 scripts/ai/build_code_index.py --platform {pl}`)", "",
@@ -755,6 +926,7 @@ def main():
         g.append(f"| `{nodes[fl['entry']]['name']}` | `{nodes[fl['entry']]['path']}` | {len(fl['files'])} | {len(fl['contracts'])} | {len(fl['tests'])} | {fl['confidence']} | [flows/{fl['id']}.md](flows/{fl['id']}.md) |")
     g += ["", "## Cross-cutting components (in ≥5 flows or used from ≥3 directories; each has a card)", "| Component | Kind | What it does | Flows | Fan-in | Card |", "|---|---|---|---|---|---|"]
     for n in cross: g.append(f"| `{n['name']}` | {n['kind']} | {md_cell(n['summary'])} | {n['metrics']['flowCount']} | {n['metrics']['fanIn']} | [{card_link(n['id'])}]({card_link(n['id'])}) |")
+    g += ["", f"## Dependencies — see [dependencies.md](dependencies.md) ({dep_stats['thirdParty']} third-party imports, {dep_stats['notOnAllowlist']} not on allowlist, {dep_stats['unused']} declared but unused, {dep_stats['unmatched']} unmatched)"]
     g += ["", f"## Contracts — see [contracts.md](contracts.md) ({sum(1 for c in contracts.values() if c['kind']=='endpoint')} endpoints, {sum(1 for c in contracts.values() if c['kind']=='storage')} storage, {sum(1 for c in contracts.values() if c['kind']=='route-contract')} routes, {sum(1 for c in contracts.values() if c['kind']=='event')} events, {sum(1 for c in contracts.values() if c['kind']=='flag')} flags)", "",
           "## Top hotspots — see [hotspots.md](hotspots.md)"] + [f"{i+1}. `{n['path']}` — fan-in {n['metrics']['fanIn']}, churn {n['metrics']['churn6m']}, tests {n['metrics']['testCount']}" for i, n in enumerate(hot[:10])]
     g += ["", f"## Unreachable from any entry point ({len(unreachable)}; dead code candidates or missing entry annotation)"] + [f"- `{nodes[x]['path']}`" for x in unreachable[:50]] + (["- …"] if len(unreachable) > 50 else [])
@@ -773,9 +945,10 @@ def main():
                 if not os.path.exists(cp): problems.append(f"missing card: {cp}")
                 elif "{{" in (read_prose(cp) or ""): problems.append(f"card prose not written (placeholders left): {cp}")
         if violations and not a.allow_violations: problems += [f"violation: {v['from']} -> {v['to']} ({v['rule']})" for v in violations]
+        problems += [f"dependency: {d}" for d in dep_problems]
     if not a.quiet:
         print(f"code-index: {len(nodes)} files, {len(contracts)} contracts, {len(E)} edges, {len(flows)} flows, {sum(1 for n in nodes.values() if n['tier']=='card')} cards, "
-              f"{stale_count} stale, {len(violations)} violations, {len(unreachable)} unreachable -> {os.path.relpath(out, root)}")
+              f"{stale_count} stale, {len(violations)} violations, {len(unreachable)} unreachable, {dep_stats['thirdParty']} third-party deps ({dep_stats['notOnAllowlist']} not allowlisted) -> {os.path.relpath(out, root)}")
         for p_ in problems[:50]: print("  CHECK: " + p_)
     if problems: sys.exit(1)
 

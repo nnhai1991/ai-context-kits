@@ -25,5 +25,9 @@ HTTP interceptors and guards are NOT entries (they appear as shared files). Anno
 - HTTP: `HttpClient` calls, `httpResource()`, generated OpenAPI clients → `consumes_endpoint`. State: NgRx actions/effects, SignalStore methods, services with signals → `emits`/`observes`.
 - Tests: `*.spec.ts` (Vitest/Jasmine), `e2e/` → `tested_by`.
 
+## Dependencies view
+`dependencies.md` is built from `package.json` (resolved versions from `package-lock.json` when present). Scoped imports map to their package
+(`@angular/common/http` → `@angular/common`); Node built-ins are system. `devDependencies` are never reported as unused.
+
 ## Card extras for Angular (write them in the prose sections when relevant)
 Change detection (`OnPush` vs `Eager`), zoneless safety, SSR/hydration constraints (`window`, `document`), signal vs RxJS boundary, i18n keys owned, accessibility contract of shared components.

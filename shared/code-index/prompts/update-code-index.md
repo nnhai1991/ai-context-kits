@@ -11,5 +11,6 @@
 4. Contracts: `python3 scripts/ai/query_code_index.py contract <id>` for every endpoint, table, route, event or flag you changed; report every
    party in the PR description. A contract change without every party updated is a blocking finding.
 5. `python3 scripts/ai/query_code_index.py violations` → zero new violations, or an explicit justification in the PR.
+   A new third-party import must first be added to the `tech.md` allowlist by the tech lead; `dependencies.md` shows it as `not on allowlist` until then.
 6. `python3 scripts/ai/build_code_index.py --platform {{p}} --check` must pass. Commit `docs/ai/code-index/**` in the same PR.
    CI rule: regenerated views must be committed (no diff after a CI run), and a PR that touches a promoted node must touch its card.

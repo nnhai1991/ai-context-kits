@@ -66,9 +66,11 @@ description: Golden-path feature & shared infra to copy for new features/tests
 %s" "$(body exemplars.md)")"
 
 if [[ "$CHECK" == "--check" ]]; then
-  if diff -r "$TMP" . --exclude='.*' --exclude='docs' --exclude='scripts' >/dev/null 2>&1 \
-     && diff -r "$TMP/.claude" .claude >/dev/null 2>&1 && diff -r "$TMP/.cursor" .cursor >/dev/null 2>&1; then
-    echo "AI files up to date"; exit 0
+  stale=0
+  while IFS= read -r f; do
+    cmp -s "$TMP/$f" "$f" || { echo "stale: $f"; stale=1; }
+  done < <(cd "$TMP" && find . -type f | sed 's|^\./||')
+  if [[ $stale -eq 0 ]]; then echo "AI files up to date"; exit 0
   else echo "AI files are stale — run scripts/ai-sync.sh"; exit 1; fi
 fi
 cp -R "$TMP"/. .

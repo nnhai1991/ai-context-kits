@@ -26,5 +26,10 @@ report `confidence: low` on iOS until a symbol tool is used. Treat `possible` ro
 - HTTP: `APIClient.get(path:)`, `URLRequest` builders, generated OpenAPI clients → `consumes_endpoint`. Storage: SwiftData `@Model`, Core Data entities, GRDB/Realm tables, `UserDefaults` keys, Keychain → `storage:`.
 - Tests: `*Tests.swift`, `*UITests` → `tested_by`.
 
+## Dependencies view
+`dependencies.md` is built from `Podfile.lock` (pod → module via `Pods/<Pod>/**/*.framework` and `.modulemap`, else pod name with/without `Swift`) and every
+`Package.resolved` found (identity `swift-foo` → module `Foo`). Imports of Apple frameworks are listed as system. If a module cannot be mapped, put the module
+name in the Import column of the `tech.md` allowlist row (e.g. `import LinkKit` for pod `Plaid`).
+
 ## Card extras for iOS (write them in the prose sections when relevant)
 Actor isolation (`@MainActor`, `nonisolated`), Sendable requirements, availability guards (`#available`), app-extension safety (`UIApplication.shared`), background-mode behaviour, Keychain accessibility class.

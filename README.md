@@ -15,7 +15,7 @@ ai-context-kits/
 |---|---|---|
 | **Steering** (how the repo is built) | versions, architecture, conventions, testing, contracts, exemplars, guardrails, security | `docs/ai/*.md` → `.kiro/steering/*.md` (+ generated AGENTS.md / CLAUDE.md / Cursor / Copilot / Windsurf / Junie) |
 | **Specs** (what to build) | EARS requirements, design (with Impact section), tasks, bugfix | `.kiro/specs/_template/` |
-| **Code index** (what exists, who depends on it, what breaks) | flat file graph + contract nodes; generated views: INDEX, directory cards (every file has a row), flow cards (per entry point), promoted component cards, contracts, hotspots, violations | `docs/ai/code-index/`, `scripts/ai/build_code_index.py`, `scripts/ai/query_code_index.py`, `.kiro/steering/code-index.md` |
+| **Code index** (what exists, who depends on it, what breaks) | flat file graph + contract nodes; generated views: INDEX, directory cards (every file has a row), flow cards (per entry point), promoted component cards, contracts, dependencies (lock file × tech.md allowlist), hotspots, violations | `docs/ai/code-index/`, `scripts/ai/build_code_index.py`, `scripts/ai/query_code_index.py`, `.kiro/steering/code-index.md` |
 | **Scan** (fill everything from the repo) | read-only, evidence-cited, UNKNOWN list; ends with building the code index | `docs/ai/repo-scan-prompt.md` (`#repo-scan` / `/repo-scan`) |
 | **Gates** | hooks (format, verify after task, protected paths, refresh index), CI drift check | `.kiro/hooks/`, `.github/workflows/` |
 

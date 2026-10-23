@@ -15,7 +15,8 @@ Rules:
 3. Prefer extending a component found with `find` over creating a parallel one. Search by purpose, then by glossary term, then by symbol.
 4. Nodes with `risk: high`, a card in `components/`, or a place in `hotspots.md` are review-required: smallest change, tests first, no refactors by side effect, and the design must say how the change keeps the card's invariants.
 5. A contract change (endpoint, DTO field, schema, route params, event payload, flag) is stop-and-ask. List every party from `query contract <id>` in the question.
-6. New dependency edges must respect `rules/allowed-edges.json`; `query violations` must not grow. Never "modernize by side effect".
+6. New dependency edges must respect `rules/allowed-edges.json`; `query violations` must not grow. A new third-party import needs a `tech.md`
+   allowlist row first (`dependencies.md` flags it otherwise). Never "modernize by side effect".
 7. After implementing, follow `prompts/update-code-index.md`: regenerate, rewrite the summaries of changed files, update the prose of touched
    flows and promoted cards, and make `build_code_index.py --check` pass. A changed file must not leave a stale summary.
 8. The index is evidence, not truth: when a row, card or flow and the code disagree, trust the code, fix the index, and note it.

@@ -16,6 +16,9 @@ Open `INDEX.md` and note: stats line, unreachable files, orphan annotations, ext
   `"entry": true` to its node in `annotations.json`. If a flow is bogus (a subview promoted by name), it is harmless; leave it.
 - Copy `templates/../rules/allowed-edges.json` to `rules/allowed-edges.json` if absent and tighten it to the layering the scan found.
   Regenerate. Every remaining violation is either a real smell (record it in INDEX.md gotchas) or a rule that is wrong (fix the rule).
+- `dependencies.md`: every third-party package must be on the `tech.md` allowlist (fill that table first; `--check` fails on `not on allowlist`).
+  `Declared but never imported` are removal candidates for the tech lead; `not in lock file` rows mean the lock file was not found or the module name
+  could not be mapped to a package (fix by naming the module in the allowlist row's Import column).
 - Unreachable files: decide dead code vs missing entry. Record dead-code candidates under INDEX.md › Unknowns for the tech lead.
 
 ## Step 2 — Summaries (one line per file; this is the bulk of the work, do it in priority order)

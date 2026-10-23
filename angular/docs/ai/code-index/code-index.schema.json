@@ -20,7 +20,8 @@
       "properties": {
         "codeNodes": { "type": "integer" }, "contractNodes": { "type": "integer" }, "edges": { "type": "integer" },
         "flows": { "type": "integer" }, "stale": { "type": "integer" }, "violations": { "type": "integer" },
-        "unreachable": { "type": "integer" }, "orphanAnnotations": { "type": "integer" }
+        "unreachable": { "type": "integer" }, "orphanAnnotations": { "type": "integer" },
+        "dependencies": { "type": "object", "properties": { "thirdParty": { "type": "integer" }, "packages": { "type": "integer" }, "notOnAllowlist": { "type": "integer" }, "unused": { "type": "integer" }, "unmatched": { "type": "integer" } } }
       }
     },
     "nodes": {
